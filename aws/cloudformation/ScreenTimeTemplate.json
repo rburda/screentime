@@ -1,0 +1,241 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Creates resources necessary for support of Alexa Skill ScreenTime",
+  "Parameters": {},
+  "Resources": {
+    "AddTimeLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": "AddTime",
+        "Description": "Adds Time to ScreenTime account for a user",
+        "Handler": "add_remove_lambda.lambda_handler",
+        "Runtime": "python2.7",
+        "Code": {
+          "S3Bucket": "rburda1-lambda-code",
+          "S3Key": "AddRemoveScreenTime.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "ScreenTimeLambdaRole",
+            "Arn"
+          ]
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "72bf1d0a-3026-4027-8d54-daac34a3a249"
+        }
+      }
+    },
+    "CreateAndWriteLambdaLogs": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "Description": "Policy for creating and writing logs for lambda processing",
+        "Path": "/",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": "logs:CreateLogGroup",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:aws:logs:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    "*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:aws:logs:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":log-group:/aws/lambda/AddTime:*"
+                  ]
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "9e28b8c6-8ddd-40bf-ba48-fcf47c04319a"
+        }
+      }
+    },
+    "ReadWriteScreenTimeS3Bucket": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "Description": "Policy for read write to screentime S3 Bucket",
+        "Path": "/",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetObject",
+                "s3:PutObject"
+              ],
+              "Resource": "arn:aws:s3:::rburda-screentime/*"
+            }
+          ]
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "aa952679-ed83-43d9-ac2a-ff63cfb0b8ea"
+        }
+      }
+    },
+    "ScreenTimeLambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "ManagedPolicyArns": [
+          {
+            "Ref": "CreateAndWriteLambdaLogs"
+          },
+          {
+            "Ref": "ReadWriteScreenTimeS3Bucket"
+          }
+        ]
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "b1f04fb8-89b0-40a0-b4bd-5da2395b2866"
+        }
+      }
+    },
+    "ScreenTimeS3Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": "rburda-screentime"
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "1ff6b11a-3214-4a7f-8ae3-0b758a20cafe"
+        }
+      }
+    }
+  },
+  "Outputs": {},
+  "Metadata": {
+    "AWS::CloudFormation::Designer": {
+      "72bf1d0a-3026-4027-8d54-daac34a3a249": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 540,
+          "y": 180
+        },
+        "z": 1,
+        "embeds": [],
+        "isrelatedto": [
+          "b1f04fb8-89b0-40a0-b4bd-5da2395b2866"
+        ]
+      },
+      "b1f04fb8-89b0-40a0-b4bd-5da2395b2866": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 240,
+          "y": 180
+        },
+        "z": 1,
+        "embeds": [],
+        "isassociatedwith": [
+          "aa952679-ed83-43d9-ac2a-ff63cfb0b8ea",
+          "9e28b8c6-8ddd-40bf-ba48-fcf47c04319a"
+        ],
+        "isrelatedto": [
+          "9e28b8c6-8ddd-40bf-ba48-fcf47c04319a"
+        ]
+      },
+      "aa952679-ed83-43d9-ac2a-ff63cfb0b8ea": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 60,
+          "y": 150
+        },
+        "z": 1,
+        "embeds": [],
+        "isrelatedto": [
+          "aa952679-ed83-43d9-ac2a-ff63cfb0b8ea",
+          "1ff6b11a-3214-4a7f-8ae3-0b758a20cafe"
+        ]
+      },
+      "1ff6b11a-3214-4a7f-8ae3-0b758a20cafe": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 150,
+          "y": 150
+        },
+        "z": 1,
+        "embeds": []
+      },
+      "9e28b8c6-8ddd-40bf-ba48-fcf47c04319a": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 330,
+          "y": 90
+        },
+        "z": 1,
+        "embeds": []
+      }
+    }
+  }
+}
