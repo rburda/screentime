@@ -287,4 +287,7 @@ def __output_remaining_time(val):
         output = output + " {} hours".format(val.hours)
     if (val.minutes > 0):
         output = output + " and {} minutes".format(val.minutes)
+
+    if output is "":
+        output = "zero"
     return output

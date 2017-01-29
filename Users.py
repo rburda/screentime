@@ -4,6 +4,8 @@ import datetime
 import isodate
 import dateutil.parser
 import dateutil.relativedelta
+from dateutil.tz import *
+import pytz
 
 class User:
 
@@ -35,11 +37,11 @@ class User:
         self.data[User.__time]=self.data[User.__time]-removesecs
 
     def start_screen_time(self):
-        self.data[User.__currentSession]=datetime.datetime.now().isoformat()
+        self.data[User.__currentSession]=datetime.datetime.now(pytz.UTC).isoformat()
 
     def end_screen_time(self):
-        delta = dateutil.relativedelta.relativedelta(datetime.datetime.now(), self.get_screen_time_start())
-        self.remove_banked_time("P{}DT{}M{}S".format(delta.days, delta.minutes, delta.seconds))
+        delta = dateutil.relativedelta.relativedelta(datetime.datetime.now(pytz.UTC), self.get_screen_time_start())
+        self.remove_banked_time("P{}DT{}H{}M{}S".format(delta.days, delta.hours, delta.minutes, delta.seconds))
         self.data[User.__currentSession]=None
         return delta
 
