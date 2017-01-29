@@ -18,7 +18,7 @@ class User:
     def write(self):
         User.s3_client.put_object(Bucket='rburda-screentime', Key=self.name, Body=json.dumps(self.data))
 
-    def hasStartedTime(self):
+    def has_started_time(self):
         started = False
         if self.data[User.__currentSession] is not None:
             if self.data[User.__currentSession] != {}:
@@ -26,37 +26,48 @@ class User:
                     started = True
         return started
 
-    def addBankedScreenTime(self, amount):
-        current_time = datetime.timedelta(seconds=self.data[User.__time])
-        add_time = isodate.parse_duration(amount)
-        self.data[User.__time]=(current_time+add_time).total_seconds()
+    def add_banked_time(self, amount):
+        addsecs = self.__parseduration(amount)
+        self.data[User.__time]=self.data[User.__time]+addsecs
 
-    def removeBankedScreenTime(self, amount):
-        current_time = datetime.timedelta(seconds=self.data[User.__time])
-        remove_time = isodate.parse_duration(amount)
-        self.data[User.__time]=(current_time-remove_time).total_seconds()
+    def remove_banked_time(self, amount):
+        removesecs = self.__parseduration(amount)
+        self.data[User.__time]=self.data[User.__time]-removesecs
 
-    def startScreenTime(self):
+    def start_screen_time(self):
         self.data[User.__currentSession]=datetime.datetime.now().isoformat()
 
-    def endScreenTime(self):
-        delta = dateutil.relativedelta.relativedelta(datetime.datetime.now(), self.getScreenTimeStart())
-        self.removeBankedScreenTime(delta.seconds)
+    def end_screen_time(self):
+        delta = dateutil.relativedelta.relativedelta(datetime.datetime.now(), self.get_screen_time_start())
+        self.remove_banked_time("P{}DT{}M{}S".format(delta.days, delta.minutes, delta.seconds))
+        self.data[User.__currentSession]=None
         return delta
 
-    def getScreenTimeStart(self):
-        isoFormat = self.data[User.__currentSession]
-        return dateutil.parser.parse(isoFormat)
+    def get_screen_time_start(self):
+        iso_format = self.data[User.__currentSession]
+        return dateutil.parser.parse(iso_format)
 
-    def getBankedTime(self):
+    def get_banked_time(self):
        return dateutil.relativedelta.relativedelta(seconds=self.data[User.__time])
 
     def __load(self):
         try:
-            file = User.s3_clients3_client.get_object(Bucket="rburda-screentime", Key=self.name)
+            file = User.s3_client.get_object(Bucket="rburda-screentime", Key=self.name)
             return json.loads(file.get('Body', {}).read())
         except (Exception):
             raise UserNotFoundException
+
+    def __parseduration(self, val):
+        time = isodate.parse_duration(val)
+
+        if (isinstance(time, isodate.duration.Duration)):
+            monthsecs = time.months*30*24*60*60
+            yearsecs = time.years*12*30*24*60*60
+            dursecs = float(monthsecs+yearsecs)+time.total_seconds()
+        else:
+            dursecs = time.total_seconds()
+
+        return dursecs
 
 
 class UserNotFoundException:

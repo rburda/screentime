@@ -166,15 +166,15 @@ def start_time(intent):
         return build_response(
             build_speechlet_response('StartTime', '{} is not configured to use screentime'.format(userName), "", True))
 
-    if (user.hasStartedTime()):
-        sTime = user.getScreenTimeStart()
+    if (user.has_started_time()):
+        sTime = user.get_screen_time_start()
         return build_response(
             build_speechlet_response('StartTime',
                                      "{} has already started using screen time at {} {}".format(userName,sTime.hour,sTime.minute),
                                      "", True))
-    user.startScreenTime()
+    user.start_screen_time()
     user.write()
-    sTime = user.getScreenTimeStart()
+    sTime = user.get_screen_time_start()
 
     return build_response(
         build_speechlet_response('StartTime',
@@ -193,12 +193,12 @@ def end_time(intent):
         return build_response(
             build_speechlet_response('EndTime', '{} is not configured to use screentime'.format(userName), "", True))
 
-    if not user.hasStartedTime():
+    if not user.has_started_time():
         return build_response(
             build_speechlet_response('EndTime', "{} did not start using screen time".format(userName), "", True))
 
-    usedTime = user.endScreenTime()
-    remainingTime = user.getBankedTime()
+    usedTime = user.end_screen_time()
+    remainingTime = user.get_banked_time()
     responseText = "Ok. {} used {} hours and {} minutes of screentime and has {} hours and {} minutes left"
     responseText = responseText.format(userName, usedTime.hours, usedTime.minutes, remainingTime.hours, remainingTime.minutes)
     return build_response(build_speechlet_response('EndTime',responseText , "", True))
@@ -222,10 +222,55 @@ def add_time(intent):
         return build_response(
             build_speechlet_response('AddTime',"I'm sorry, I didn't understand who to add the time to", "", False))
 
-    user.addBankedScreenTime(amount)
+    user.add_banked_time(amount)
     user.write()
-    return build_response(build_speechlet_response('AddTime', 'Done', '', True))
 
+    bankedTime = user.get_banked_time()
+    speechOutput = 'Done. {} now has {} and {} screen time available'.format(userName, bankedTime.hours, bankedTime.minutes)
+    return build_response(build_speechlet_response('AddTime', speechOutput, '', True))
+
+def remove_time(intent):
+    amount = getSlotValue(intent, "amount")
+    userName = getSlotValue(intent, "user")
+
+    if amount == {} or amount is None:
+        return build_response(
+            build_speechlet_response('RemoveTime',"I'm sorry, I didn't understand how much time to remove", "", False))
+    if userName == {} or userName is None:
+        return build_response(
+            build_speechlet_response('RemoveTime',"I'm sorry, I didn't understand who to remove the time from", "", False))
+
+    print("User = {}, amount = {}".format(userName, amount))
+    try:
+        user = Users.User(userName)
+    except Users.UserNotFoundException:
+        return build_response(
+            build_speechlet_response('RemoveTime',"I'm sorry, I didn't understand who to remove the time from", "", False))
+
+    user.remove_banked_time(amount)
+    user.write()
+
+    bankedTime = user.get_banked_time()
+    speechOutput = 'Done. {} now has {} and {} screen time available'.format(userName, bankedTime.hours, bankedTime.minutes)
+    return build_response(build_speechlet_response('RemoveTime', speechOutput, '', True))
+
+def get_current_time(intent):
+    userName = getSlotValue(intent, "user")
+
+    if userName == {} or userName is None:
+        return build_response(
+            build_speechlet_response('GetCurrentTime',"I'm sorry, I didn't understand who to get the current screen time for", "", False))
+
+    print("User = {}".format(userName))
+    try:
+        user = Users.User(userName)
+    except Users.UserNotFoundException:
+        return build_response(
+            build_speechlet_response('GetCurrentTime',"I'm sorry, I didn't understand who to get the current screen time for", "", False))
+
+    bankedTime = user.get_banked_time()
+    speechOutput = '{} has {} and {} screen time available'.format(userName, bankedTime.hours, bankedTime.minutes)
+    return build_response(build_speechlet_response('RemoveTime', speechOutput, '', True))
 
 def getSlotValue(intent, slotName):
     return intent.get("slots", {}).get(slotName, {}).get("value")
