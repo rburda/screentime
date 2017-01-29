@@ -1,6 +1,8 @@
 .DS_Store
 *.zip
 virtual-env/
+*.iml
+.idea/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

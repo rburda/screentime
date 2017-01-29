@@ -79,10 +79,14 @@ def on_intent(intent_request, session):
     # Dispatch to your skill's intent handlers
     if intent_name == "AddTime":
         return add_time(intent)
-    if intent_name == "StartTime":
+    elif intent_name == "StartTime":
         return start_time(intent)
-    if intent_name == "EndTime":
+    elif intent_name == "EndTime":
         return end_time(intent)
+    elif intent_name == "RemoveTime":
+        return remove_time(intent)
+    elif intent_name == "GetCurrentTime":
+        return get_current_time(intent)
     elif intent_name == "AMAZON.HelpIntent":
         return get_welcome_response()
     elif intent_name == "AMAZON.CancelIntent" or intent_name == "AMAZON.StopIntent":
@@ -131,12 +135,11 @@ def get_welcome_response():
     session_attributes = {}
 
     card_title = "Welcome"
-    speech_output = "Welcome to Screen Time " \
-                    "Please tell me who is adding time today by saying add 10 minutes to Avery's time"
+    speech_output = "Ok."
 
     # If the user either does not reply to the welcome message or says something
     # that is not understood, they will be prompted again with this text.
-    reprompt_text = "Please tell me who is adding time today by saying add 10 minutes to Avery's time."
+    reprompt_text = "Please say Start screen time for Avery"
 
     should_end_session = False
 
@@ -226,7 +229,7 @@ def add_time(intent):
     user.write()
 
     bankedTime = user.get_banked_time()
-    speechOutput = 'Done. {} now has {} and {} screen time available'.format(userName, bankedTime.hours, bankedTime.minutes)
+    speechOutput = 'Done. {} now has {} hours and {} minutes screen time available'.format(userName, bankedTime.hours, bankedTime.minutes)
     return build_response(build_speechlet_response('AddTime', speechOutput, '', True))
 
 def remove_time(intent):
@@ -251,7 +254,7 @@ def remove_time(intent):
     user.write()
 
     bankedTime = user.get_banked_time()
-    speechOutput = 'Done. {} now has {} and {} screen time available'.format(userName, bankedTime.hours, bankedTime.minutes)
+    speechOutput = 'Done. {} now has {} hours and {} minutes screen time available'.format(userName, bankedTime.hours, bankedTime.minutes)
     return build_response(build_speechlet_response('RemoveTime', speechOutput, '', True))
 
 def get_current_time(intent):
@@ -269,7 +272,7 @@ def get_current_time(intent):
             build_speechlet_response('GetCurrentTime',"I'm sorry, I didn't understand who to get the current screen time for", "", False))
 
     bankedTime = user.get_banked_time()
-    speechOutput = '{} has {} and {} screen time available'.format(userName, bankedTime.hours, bankedTime.minutes)
+    speechOutput = '{} has {} hours and {} minutes screen time available'.format(userName, bankedTime.hours, bankedTime.minutes)
     return build_response(build_speechlet_response('RemoveTime', speechOutput, '', True))
 
 def getSlotValue(intent, slotName):
