@@ -8,14 +8,13 @@ http://amzn.to/1LGWsLG
 """
 
 from __future__ import print_function
-import boto3
-import Users
-
+from Users import *
+from Requests import *
 
 s3_client = boto3.client('s3')
 
-# --------------- Main handler ------------------
 
+# --------------- Main handler ------------------
 def lambda_handler(event, context):
     """ Route the incoming request based on type (LaunchRequest, IntentRequest,
     etc.) The JSON body of the request is provided in the event parameter.
@@ -31,66 +30,45 @@ def lambda_handler(event, context):
     #         "amzn1.echo-sdk-ams.app.[unique-value-here]"):
     #     raise ValueError("Invalid Application ID")
 
-    if event['session']['new']:
-        on_session_started({'requestId': event['request']['requestId']}, event['session'])
+    req = Request(event)
 
-    if event['request']['type'] == "LaunchRequest":
-        return on_launch(event['request'], event['session'])
-    elif event['request']['type'] == "IntentRequest":
-        return on_intent(event['request'], event['session'])
-    elif event['request']['type'] == "SessionEndedRequest":
-        return on_session_ended(event['request'], event['session'])
-
-
-# --------------- Events ------------------
-#
-# Called when the session starts
-#
-def on_session_started(session_started_request, session):
-    print("on_session_started requestId=" + session_started_request['requestId'] + ", sessionId=" + session['sessionId'])
+    if req.getType() == "LaunchRequest":
+        return on_launch(req)
+    elif req.getType() == "IntentRequest":
+        return on_intent(req)
 
 
 #
-#Called when the user ends the session. Is not called when the skill returns should_end_session=true
+# Called when the user launches the skill without specifying what they want
 #
-def on_session_ended(session_ended_request, session):
-    print("on_session_ended requestId=" + session_ended_request['requestId'] + ", sessionId=" + session['sessionId'])
-
-#
-#Called when the user launches the skill without specifying what they want
-#
-def on_launch(launch_request, session):
-
-    print("on_launch requestId=" + launch_request['requestId'] + ", sessionId=" + session['sessionId'])
+def on_launch(req):
+    print("on_launch requestId=" + req.getRequestId() + ", sessionId=" + req.getSessionId())
 
     # Dispatch to your skill's launch
-    return get_welcome_response()
+    return get_welcome_response(req)
 
 
 #
 # Called when the user specifies an intent for this skill
 #
-def on_intent(intent_request, session):
-    print("on_intent requestId=" + intent_request['requestId'] + ", sessionId=" + session['sessionId'])
-
-    intent = intent_request['intent']
-    intent_name = intent_request['intent']['name']
+def on_intent(req):
+    print("on_intent requestId=" + req.getRequestId() + ", sessionId=" + req.getSessionId())
 
     # Dispatch to your skill's intent handlers
-    if intent_name == "AddTime":
-        return add_time(intent)
-    elif intent_name == "StartTime":
-        return start_time(intent)
-    elif intent_name == "EndTime":
-        return end_time(intent)
-    elif intent_name == "RemoveTime":
-        return remove_time(intent)
-    elif intent_name == "GetCurrentTime":
-        return get_current_time(intent)
-    elif intent_name == "AMAZON.HelpIntent":
-        return get_welcome_response()
-    elif intent_name == "AMAZON.CancelIntent" or intent_name == "AMAZON.StopIntent":
-        return handle_session_end_request()
+    if req.getIntent() == "AddTime":
+        return add_time(req)
+    elif req.getIntent() == "StartTime":
+        return start_time(req)
+    elif req.getIntent() == "EndTime":
+        return end_time(req)
+    elif req.getIntent() == "RemoveTime":
+        return remove_time(req)
+    elif req.getIntent() == "GetCurrentTime":
+        return get_current_time(req)
+    elif req.getIntent() == "AMAZON.HelpIntent":
+        return get_welcome_response(req)
+    elif req.getIntent() == "AMAZON.CancelIntent" or req.getIntent() == "AMAZON.StopIntent":
+        return handle_session_end_request(req)
     else:
         raise ValueError("Invalid intent")
 
@@ -118,21 +96,18 @@ def build_speechlet_response(title, output, reprompt_text, should_end_session):
     }
 
 
-def build_response(speechlet_response):
+def build_response(speechlet_response, req):
+    req.save_state_in_session()
     return {
         'version': '1.0',
-        'sessionAttributes': {},
+        'sessionAttributes': req.get_session_attributes(),
         'response': speechlet_response
     }
 
 
 # --------------- Functions that control the skill's behavior ------------------
 
-def get_welcome_response():
-    """ If we wanted to initialize the session to have some attributes we could
-    add those here
-    """
-    session_attributes = {}
+def get_welcome_response(req):
 
     card_title = "Welcome"
     speech_output = "Ok."
@@ -144,148 +119,159 @@ def get_welcome_response():
     should_end_session = False
 
     return build_response(build_speechlet_response(
-        card_title, speech_output, reprompt_text, should_end_session))
+        card_title, speech_output, reprompt_text, should_end_session), req)
 
 
-def handle_session_end_request():
+def handle_session_end_request(req):
     card_title = "Session Ended"
     speech_output = "Thank you for trying the Alexa Skills Kit sample. Have a nice day! "
-
-    # Setting this to true ends the session and exits the skill.
-    should_end_session = True
-
-    return build_response(build_speechlet_response(card_title, speech_output, None, should_end_session))
+    return build_response(build_speechlet_response(card_title, speech_output, None, True), req)
 
 
-def start_time(intent):
-    userName = getSlotValue(intent, "user")
-    if userName == {} or userName is None:
-        return build_response(build_speechlet_response('StartTime', "Who's time is starting?", "", False))
+def start_time(req):
+    user_name = req.getUser()
+    if user_name == {} or user_name is None:
+        return build_response(build_speechlet_response('StartTime', "Who's time is starting?", "", False), req)
 
-    print("User = {}".format(userName))
+    print("User = {}".format(user_name))
     try:
-        user = Users.User(userName)
-    except Users.UserNotFoundException:
+        user = User(user_name)
+    except UserNotFoundException:
         return build_response(
-            build_speechlet_response('StartTime', '{} is not configured to use screentime'.format(userName), "", True))
+            build_speechlet_response('StartTime', '{} is not configured to use screentime'.format(user_name), "", True),
+            req)
 
-    if (user.has_started_time()):
-        sTime = user.get_screen_time_start()
+    if user.has_started_time():
+        s_time = user.get_screen_time_start()
         return build_response(
             build_speechlet_response('StartTime',
-                                     "{} has already started using screen time at {} {}".format(userName,sTime.hour,sTime.minute),
-                                     "", True))
+                                     "{} has already started using screen time at {} {}".format(user_name, s_time.hour,
+                                                                                                s_time.minute),
+                                     "", True), req)
     user.start_screen_time()
     user.write()
-    sTime = user.get_screen_time_start()
+    s_time = user.get_screen_time_start()
 
     return build_response(
         build_speechlet_response('StartTime',
-                                 "Ok. {} has started screen time at {} {}".format(userName, sTime.hour, sTime.minute),
-                                 "", True))
+                                 "Ok. {} has started screen time at {} {}".format(user_name, s_time.hour,
+                                                                                  s_time.minute),
+                                 "", True), req)
 
-def end_time(intent):
-    userName = getSlotValue(intent, "user")
-    if userName == {} or userName is None:
-        return build_response(build_speechlet_response('EndTime', "Who's time is ending?", "", False))
 
-    print("User = {}".format(userName))
+def end_time(req):
+    user_name = req.getUser()
+    if user_name == {} or user_name is None:
+        req.store_slots_in_session()
+        return build_response(build_speechlet_response('EndTime', "Who's time is ending?", "", False), req)
+
+    print("User = {}".format(user_name))
     try:
-        user = Users.User(userName)
-    except Users.UserNotFoundException:
+        user = User(user_name)
+    except UserNotFoundException:
         return build_response(
-            build_speechlet_response('EndTime', '{} is not configured to use screentime'.format(userName), "", True))
+            build_speechlet_response('EndTime', '{} is not configured to use screentime'.format(user_name), "", True),
+            req)
 
     if not user.has_started_time():
         return build_response(
-            build_speechlet_response('EndTime', "{} did not start using screen time".format(userName), "", True))
+            build_speechlet_response('EndTime', "{} did not start using screen time".format(user_name), "", True), req)
 
-    usedTime = user.end_screen_time()
-    remainingTime = __output_remaining_time(user.get_banked_time())
-    responseText = "Ok. {} used {} hours and {} minutes of screentime and has {} available"
-    responseText = responseText.format(userName, usedTime.hours, usedTime.minutes, remainingTime)
+    used_time = user.end_screen_time()
+    remaining_time = __output_remaining_time(user.get_banked_time())
+    response_text = "Ok. {} used {} hours and {} minutes of screentime and has {} available"
+    response_text = response_text.format(user_name, used_time.hours, used_time.minutes, remaining_time)
     user.write()
-    return build_response(build_speechlet_response('EndTime',responseText , "", True))
+    return build_response(build_speechlet_response('EndTime', response_text, "", True), req)
 
 
-def add_time(intent):
-    amount = getSlotValue(intent, "amount")
-    userName = getSlotValue(intent, "user")
+def add_time(req):
+    amount = req.getAmount()
+    user_name = req.getUser()
 
     if amount == {} or amount is None:
         return build_response(
-            build_speechlet_response('AddTime',"I'm sorry, I didn't understand how much time to add", "", False))
-    if userName == {} or userName is None:
+            build_speechlet_response('AddTime', "I'm sorry, I didn't understand how much time to add", "", False), req)
+    if user_name == {} or user_name is None:
         return build_response(
-            build_speechlet_response('AddTime',"I'm sorry, I didn't understand who to add the time to", "", False))
+            build_speechlet_response('AddTime', "I'm sorry, I didn't understand who to add the time to", "", False),
+            req)
 
-    print("User = {}, amount = {}".format(userName, amount))
+    print("User = {}, amount = {}".format(user_name, amount))
     try:
-        user = Users.User(userName)
-    except Users.UserNotFoundException:
+        user = User(user_name)
+    except UserNotFoundException:
         return build_response(
-            build_speechlet_response('AddTime',"I'm sorry, I didn't understand who to add the time to", "", False))
+            build_speechlet_response('AddTime', "I'm sorry, I didn't understand who to add the time to", "", False),
+            req)
 
     user.add_banked_time(amount)
     user.write()
 
-    bankedTime = __output_remaining_time(user.get_banked_time())
-    speechOutput = 'Done. {} now has {} screen time available'.format(userName, bankedTime)
-    return build_response(build_speechlet_response('AddTime', speechOutput, '', True))
+    banked_time = __output_remaining_time(user.get_banked_time())
+    speech_output = 'Done. {} now has {} screen time available'.format(user_name, banked_time)
+    return build_response(build_speechlet_response('AddTime', speech_output, '', True), req)
 
-def remove_time(intent):
-    amount = getSlotValue(intent, "amount")
-    userName = getSlotValue(intent, "user")
+
+def remove_time(req):
+    amount = req.getAmount()
+    user_name = req.getUser()
 
     if amount == {} or amount is None:
         return build_response(
-            build_speechlet_response('RemoveTime',"I'm sorry, I didn't understand how much time to remove", "", False))
-    if userName == {} or userName is None:
+            build_speechlet_response('RemoveTime', "I'm sorry, I didn't understand how much time to remove", "",
+                                     False), req)
+    if user_name == {} or user_name is None:
         return build_response(
-            build_speechlet_response('RemoveTime',"I'm sorry, I didn't understand who to remove the time from", "", False))
+            build_speechlet_response('RemoveTime', "I'm sorry, I didn't understand who to remove the time from", "",
+                                     False), req)
 
-    print("User = {}, amount = {}".format(userName, amount))
+    print("User = {}, amount = {}".format(user_name, amount))
     try:
-        user = Users.User(userName)
-    except Users.UserNotFoundException:
+        user = User(user_name)
+    except UserNotFoundException:
         return build_response(
-            build_speechlet_response('RemoveTime',"I'm sorry, I didn't understand who to remove the time from", "", False))
+            build_speechlet_response('RemoveTime', "I'm sorry, I didn't understand who to remove the time from", "",
+                                     False), req)
 
     user.remove_banked_time(amount)
     user.write()
 
-    bankedTime = __output_remaining_time(user.get_banked_time())
-    speechOutput = 'Done. {} now has {} screen time available'.format(userName, bankedTime)
-    return build_response(build_speechlet_response('RemoveTime', speechOutput, '', True))
+    banked_time = __output_remaining_time(user.get_banked_time())
+    speech_output = 'Done. {} now has {} screen time available'.format(user_name, banked_time)
+    return build_response(build_speechlet_response('RemoveTime', speech_output, '', True), req)
 
-def get_current_time(intent):
-    userName = getSlotValue(intent, "user")
 
-    if userName == {} or userName is None:
+def get_current_time(req):
+    user_name = req.getUser()
+
+    if user_name == {} or user_name is None:
         return build_response(
-            build_speechlet_response('GetCurrentTime',"I'm sorry, I didn't understand who to get the current screen time for", "", False))
+            build_speechlet_response('GetCurrentTime',
+                                     "I'm sorry, I didn't understand who to get the current screen time for", "",
+                                     False), req)
 
-    print("User = {}".format(userName))
+    print("User = {}".format(user_name))
     try:
-        user = Users.User(userName)
-    except Users.UserNotFoundException:
+        user = User(user_name)
+    except UserNotFoundException:
         return build_response(
-            build_speechlet_response('GetCurrentTime',"I'm sorry, I didn't understand who to get the current screen time for", "", False))
+            build_speechlet_response('GetCurrentTime',
+                                     "I'm sorry, I didn't understand who to get the current screen time for", "",
+                                     False), req)
 
-    bankedTime = __output_remaining_time(user.get_banked_time())
-    speechOutput = '{} has {} screen time available'.format(userName, bankedTime)
-    return build_response(build_speechlet_response('RemoveTime', speechOutput, '', True))
+    banked_time = __output_remaining_time(user.get_banked_time())
+    speech_output = '{} has {} screen time available'.format(user_name, banked_time)
+    return build_response(build_speechlet_response('GetCurrentTime', speech_output, '', True), req)
 
-def getSlotValue(intent, slotName):
-    return intent.get("slots", {}).get(slotName, {}).get("value")
 
 def __output_remaining_time(val):
     output = ""
-    if (val.days > 0):
+    if val.days > 0:
         output = output + " {} days".format(val.days)
-    if (val.hours > 0):
+    if val.hours > 0:
         output = output + " {} hours".format(val.hours)
-    if (val.minutes > 0):
+    if val.minutes > 0:
         output = output + " and {} minutes".format(val.minutes)
 
     if output is "":
