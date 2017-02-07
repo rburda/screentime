@@ -4,9 +4,9 @@ A set of resources necessary for supporting a new skill for Amazon's Echo platfo
 
 ##Build
 
-1. zip -f AddRemoveScreenTime1.zip *.py
+1. zip -u AddRemoveScreenTime1.zip *.py
 2. cd virtual-env/lib/python2.7/site-packages/
-3. zip -f AddRemoveScreenTime1.zip *
+3. zip -u AddRemoveScreenTime1.zip *
 4. aws lambda update-function-code --function-name AddTime --zip-file fileb://AddRemoveScreenTime1.zip
 
 ##Dependencies
